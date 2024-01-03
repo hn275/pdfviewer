@@ -26,5 +26,5 @@ jobs:
         run: cargo fmt
       - name: Format | Diff
         run: |
-          git diff --compact-sumary --exit-code || \
-          (echo; echo "Format code with \`cargo fmt\`"); exit 1;
+          git diff --compact-summary --exit-code || \
+          (echo; echo "Format code with \`cargo fmt\`"; exit 1)
