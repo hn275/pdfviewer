@@ -1,0 +1,30 @@
+name: Format checker
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  fmt:
+    name: Formatting with `cargo fmt`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1
+        with:
+          rust-version: stable
+          components: rustfmt
+      - name: Format | Format
+        run: cargo fmt
+      - name: Format | Diff
+        run: |
+          git diff --compact-sumary --exit-code || \
+          (echo; echo "Format code with \`cargo fmt\`"); exit 1;
