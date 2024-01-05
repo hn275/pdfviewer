@@ -1,0 +1,9 @@
+#root {
+  width: 100%;
+  background-color: red;
+  display: none;
+}
+
+iframe {
+  width: 100%;
+}
