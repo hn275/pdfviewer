@@ -1,5 +1,5 @@
 use futures_util::SinkExt;
-use std::{env, fmt, fs, process, thread::sleep, time::Duration};
+use std::{env, fmt, fs, process, thread, time::Duration};
 use warp::{filters::ws::WebSocket, ws, Filter};
 
 #[tokio::main]
@@ -19,11 +19,14 @@ async fn main() -> std::io::Result<()> {
         .and(warp::ws()) // The `ws()` filter will prepare the Websocket handshake.
         .map(move |ws: ws::Ws| ws.on_upgrade(move |websocket| handle_connection(websocket)));
 
+    // TODO: use channel here to watch file so only one watch loop is needed for multiple connections
+
     warp::serve(routes).run(([127, 0, 0, 1], 8081)).await;
     return Ok(());
 }
 
 async fn handle_connection(mut websocket: WebSocket) {
+    println!("New connection detected!");
     // NOTE: since at the file has exists for this function to be called,
     // `unwrap()` is ok for file existence
 
@@ -45,12 +48,12 @@ async fn handle_connection(mut websocket: WebSocket) {
 
     // pooling for file changes
     loop {
+        thread::sleep(Duration::from_millis(500)); // TODO: add cli args for this timeout, default to 100 ms
         let file_metadata = fs::metadata(path).unwrap();
         let modified_at = file_metadata.modified().expect("Platform is not supported");
 
         // no change detected
         if modified_at == last_modified {
-            sleep(Duration::from_millis(100)); // TODO: add cli args for this timeout, default to 100 ms
             continue;
         }
 
