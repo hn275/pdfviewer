@@ -1,19 +1,27 @@
 use axum::{
-    extract::ws::{Message, WebSocket, WebSocketUpgrade},
-    response::{IntoResponse, Response},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
+    response::Response,
     routing::get,
     Router,
 };
-use futures_util::SinkExt;
-use std::{
-    env, fmt, fs, process,
-    sync::{self, Arc},
-    thread,
-    time::Duration,
-};
+use crossbeam_channel;
+use std::{env, fmt, fs, process, sync::Arc, thread, time::Duration};
+use tower_http::services::ServeDir;
 
 #[derive(Clone)]
-struct Reloaded;
+struct Reloaded(bool);
+
+#[derive(Clone)]
+struct AppState {
+    path: String,
+    chan: crossbeam_channel::Receiver<Reloaded>,
+}
+
+const POLLING_DELAY: Duration = Duration::from_millis(300);
+const ADDR: &'static str = "0.0.0.0:8080";
 
 #[tokio::main]
 async fn main() {
@@ -25,17 +33,22 @@ async fn main() {
     let path = args[1].to_owned();
     // file exists?
     fs::metadata(path.as_str()).expect("File not found.");
-    println!("Watching: {}", path);
+    println!("Watching file: {}", path);
 
-    // watch file
-    let (tx, rx) = sync::mpsc::sync_channel::<u8>(1);
+    // WATCH FILE
+    // channels and file paths
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let file_path = Arc::new(path);
+    let path = Arc::clone(&file_path);
+    // polling
     thread::spawn(move || {
+        let path = path.to_string();
         let mut last_modified = fs::metadata(path.as_str())
             .expect("File not found.")
             .modified()
             .expect("Platform not supported.");
         loop {
-            thread::sleep(Duration::from_millis(300));
+            thread::sleep(POLLING_DELAY);
             let file_modified = fs::metadata(path.as_str())
                 .expect("File not found.")
                 .modified()
@@ -50,42 +63,50 @@ async fn main() {
             last_modified = file_modified;
 
             // send signal
-            tx.send(1).expect("Failed to send signal");
+            tx.send(Reloaded(true)).expect("Failed to send signal");
         }
     });
 
-    let rx = Arc::new(rx);
-    // connection
+    // CONNECTION
+    let app_state = AppState {
+        path: file_path.to_string(),
+        chan: rx,
+    };
     let app = Router::new()
+        .nest_service("/", ServeDir::new("ui"))
         .route("/viewer", get(handle_connection))
-        .with_state(Arc::clone(&rx));
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
+        .with_state(app_state);
+    let listener = tokio::net::TcpListener::bind(ADDR).await.unwrap();
+
+    // OPEN BROWSER
+    let mut full_addr = "http://".to_string();
+    full_addr.push_str(ADDR);
+    open::that(full_addr).unwrap();
+
     return axum::serve(listener, app).await.unwrap();
 }
 
-async fn handle_connection(ws: WebSocketUpgrade) -> Response {
-    return ws.on_upgrade(handle_socket);
+async fn handle_connection(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
+    return ws.on_upgrade(move |soc| async {
+        handle_socket(soc, state).await;
+    });
 }
 
-async fn handle_socket(mut socket: WebSocket) {
+async fn handle_socket(mut socket: WebSocket, state: AppState) {
     println!("New connection detected!");
-    // NOTE: since at the file has exists for this function to be called,
-    // `unwrap()` is ok for file existence
-
-    // parse arg
-    let args = env::args().collect::<Vec<String>>();
-    let path = args[1].as_str();
-
-    // read file
-    let mut last_modified = fs::metadata(path)
-        .unwrap()
-        .modified()
-        .expect("Platform not supported");
-
-    let file = fs::read(path).unwrap();
+    // send files when connection is created
+    let file = fs::read(&state.path).unwrap();
     if let Err(err) = socket.send(Message::Binary(file)).await {
         error_exit(err);
         return;
+    }
+
+    while state.chan.recv().is_ok() {
+        let file = fs::read(&state.path).unwrap();
+        if let Err(err) = socket.send(Message::Binary(file)).await {
+            error_exit(err);
+            return;
+        }
     }
 }
 
