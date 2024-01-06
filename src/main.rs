@@ -8,6 +8,7 @@ use axum::{
     Router,
 };
 use crossbeam_channel;
+use dirs;
 use std::{fmt, fs, io, process, thread};
 use tower_http::services::ServeDir;
 
@@ -70,8 +71,13 @@ async fn main() -> io::Result<()> {
         cli: cli_args.clone(),
     };
 
+    // static assets
+    let mut static_dir = dirs::home_dir().expect("env `$HOME` not found");
+    static_dir.push(".pdfviewer");
+    static_dir.push("ui");
+
     let app = Router::new()
-        .nest_service("/", ServeDir::new("ui")) // serving the ui to the browser
+        .nest_service("/", ServeDir::new(static_dir)) // serving the ui to the browser
         .route("/viewer", get(handle_ws_conn))
         .with_state(app_state);
 
