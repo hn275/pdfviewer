@@ -1,5 +1,5 @@
 [package]
-name = "typst-viewer"
+name = "pdfviewer"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,4 @@ axum = { version = "0.7.3", features = ["ws"] }
 crossbeam-channel = { version = "0.5.10" }
 tower-http = { version = "0.5.0", features = ["fs", "full"] }
 open = { version = "5.0.1" }
+clap = { version = "4.4.13", features = ["cargo", "derive"] }
