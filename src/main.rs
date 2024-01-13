@@ -78,7 +78,7 @@ async fn main() -> io::Result<()> {
 
     let app = Router::new()
         .nest_service("/", ServeDir::new(static_dir)) // serving the ui to the browser
-        .route("/viewer", get(handle_ws_conn))
+        .route("/viewer", get(socket_handler)) // ws connection handler
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(cli_args.host()).await?;
@@ -91,24 +91,24 @@ async fn main() -> io::Result<()> {
     return axum::serve(listener, app).await;
 }
 
-async fn handle_ws_conn(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
-    return ws.on_upgrade(move |soc| async {
-        process_socket(soc, state).await;
+async fn socket_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
+    return ws.on_upgrade(move |socket| async {
+        socket_watch_file(socket, state).await;
     });
 }
 
-async fn process_socket(mut socket: WebSocket, state: AppState) {
+async fn socket_watch_file(mut socket: WebSocket, state: AppState) {
     state.cli.write_stdin("new connection detected");
-    // send files when client is connected
-    let file = fs::read(&state.cli.file()).unwrap();
+    // send binary when client is connected
+    let file = fs::read(&state.cli.file()).expect("File not found.");
     if let Err(err) = socket.send(Message::Binary(file)).await {
         error_exit(err);
         return;
     }
 
-    // send files when signal is received
+    // send binary when signal is received
     while state.chan.recv().is_ok() {
-        let file = fs::read(&state.cli.file()).unwrap();
+        let file = fs::read(&state.cli.file()).expect("File not found.");
         if let Err(err) = socket.send(Message::Binary(file)).await {
             error_exit(err);
             return;
