@@ -84,8 +84,7 @@ async fn main() -> io::Result<()> {
     let listener = tokio::net::TcpListener::bind(cli_args.host()).await?;
 
     // OPEN BROWSER
-    let mut full_addr = "http://".to_string();
-    full_addr.push_str(&cli_args.host());
+    let full_addr = format!("http://localhost:{}", &cli_args.port());
     open::that(&full_addr)?;
     println!("Serving at: {full_addr}");
 

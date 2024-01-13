@@ -5,11 +5,12 @@ use std::{env, fmt, io, time::Duration};
 pub struct Arg {
     file: String,
     verbose: bool,
-    addr: String,
+    port: String,
     polling_duration: Duration,
 }
 
-const DEFAULT_POLLING_DURATION: u64 = 300;
+const DEFAULT_POLLING_DURATION: &'static str = "300";
+const DEFAULT_PORT: &'static str = "8080";
 
 impl Arg {
     pub fn new() -> io::Result<Self> {
@@ -50,23 +51,23 @@ impl Arg {
             None => false,
         };
 
-        let port = if let Some(p) = matches.get_one::<String>("port") {
-            p
-        } else {
-            "8080"
-        };
+        let default_port = DEFAULT_PORT.to_string();
+        let port = matches
+            .get_one::<String>("port")
+            .unwrap_or_else(|| &default_port);
 
-        let dur = if let Some(d) = matches.get_one::<String>("duration") {
-            d.parse::<u64>()
-                .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))
-        } else {
-            Ok(DEFAULT_POLLING_DURATION)
-        }?;
+        let default_polling = DEFAULT_POLLING_DURATION.to_string();
+        let dur = matches
+            .get_one::<String>("duration")
+            .unwrap_or_else(|| &default_polling)
+            .to_owned()
+            .parse::<u64>()
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
 
         return Ok(Arg {
             file,
             verbose,
-            addr: format!("0.0.0.0:{}", port),
+            port: port.to_string(),
             polling_duration: Duration::from_millis(dur),
         });
     }
@@ -77,8 +78,12 @@ impl Arg {
         }
     }
 
-    pub fn host(&self) -> &str {
-        return self.addr.as_str();
+    pub fn host(&self) -> String {
+        return format!("0.0.0.0:{}", self.port);
+    }
+
+    pub fn port(&self) -> &str {
+        return self.port.as_str();
     }
 
     pub fn file(&self) -> &str {
