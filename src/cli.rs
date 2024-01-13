@@ -82,8 +82,8 @@ impl Arg {
         return format!("0.0.0.0:{}", self.port);
     }
 
-    pub fn port(&self) -> &str {
-        return self.port.as_str();
+    pub fn local_host(&self) -> String {
+        return format!("http://localhost:{}", self.port);
     }
 
     pub fn file(&self) -> &str {
