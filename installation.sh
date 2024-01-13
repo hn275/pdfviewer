@@ -14,22 +14,22 @@ install() {
     cargo build --release
 
     echo "Linking bin to /usr/local/bin"
-    sudo ln -P ./target/release/pdfviewer /usr/local/bin/
+    sudo ln -fP ./target/release/pdfviewer /usr/local/bin/
 
     echo "Creating path: ${path}"
     mkdir -p $path
 
     echo "Coping static assets"
-    cp -r ./ui $path
+    cp -fr ./ui $path
 
     echo "Done"
 }
 
 case "$1" in
-    i)
+    -i)
         install
         ;;
-    x)
+    -x)
         uninstall
         ;;
     *)
