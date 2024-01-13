@@ -9,7 +9,11 @@ use axum::{
 };
 use crossbeam_channel;
 use dirs;
-use std::{fmt, fs, io, process, thread};
+use std::{
+    fmt, fs,
+    io,
+    process, thread,
+};
 use tower_http::services::ServeDir;
 
 mod cli;
@@ -110,8 +114,7 @@ async fn socket_watch_file(mut socket: WebSocket, state: AppState) {
     while state.chan.recv().is_ok() {
         let file = fs::read(&state.cli.file()).expect("File not found.");
         if let Err(err) = socket.send(Message::Binary(file)).await {
-            error_exit(err);
-            return;
+            eprintln!("{}", err.to_string());
         }
     }
 }

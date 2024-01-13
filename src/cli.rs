@@ -45,7 +45,10 @@ impl Arg {
             )
             .get_matches();
 
-        let file = matches.get_one::<String>("file").unwrap().to_owned();
+        let file = matches
+            .get_one::<String>("file")
+            .expect("file arg missing")
+            .to_owned();
         let verbose = match matches.get_one::<String>("verbose") {
             Some(val) => val.eq("1"),
             None => false,

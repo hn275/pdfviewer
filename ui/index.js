@@ -22,3 +22,13 @@ ws.addEventListener("message", (e) => {
     console.error(e);
   }
 });
+
+// close ws on page leave
+window.onbeforeunload = function () {
+  websocket.onclose = function () {}; // disable onclose handler first
+  websocket.close();
+};
+
+ws.onclose = function () {
+  window.close();
+};
